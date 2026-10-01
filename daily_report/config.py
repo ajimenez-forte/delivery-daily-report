@@ -5,11 +5,30 @@ from zoneinfo import ZoneInfo
 
 CHANNEL_ID = os.environ.get("DAILY_SLACK_CHANNEL", "C08AHSM8VRS")
 TOKEN_ENV = "SLACK_READONLY_TOKEN"
-# Postgres. Credenciales solo por variables de entorno.
-DATABASE_URL = os.environ.get("DATABASE_URL")                  # dueño: importación y migraciones
-APP_DATABASE_URL = os.environ.get("DAILY_APP_DATABASE_URL")    # rol de la app, pasa por RLS
-APP_DB_ROLE = os.environ.get("DAILY_APP_DB_ROLE", "daily_app")
+
+
+def _load_env_local(path=".env.local"):
+    """Lee .env.local (no se sube al repo) sin pisar variables ya definidas."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    except FileNotFoundError:
+        pass
+
+
+_load_env_local()
+
+# Postgres de Supabase, conexión del dueño. Solo para importación y migraciones.
+DATABASE_URL = os.environ.get("DATABASE_URL")
 PEOPLE_FILE = os.environ.get("DAILY_PEOPLE_FILE", "people.json")
+# País de cada persona (define sus festivos). Solo se usa al crear la persona;
+# después lo administra el admin.
+COUNTRIES_FILE = os.environ.get("DAILY_COUNTRIES_FILE", os.path.join("config", "paises.json"))
 TZ = ZoneInfo(os.environ.get("DAILY_TZ", "America/Bogota"))
 
 HISTORY_START = date(2026, 8, 27)       # primer Daily en Slack

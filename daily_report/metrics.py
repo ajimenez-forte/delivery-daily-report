@@ -1,11 +1,14 @@
 """Carga y cumplimiento por persona.
 
-Todo se lee con la conexión de la app, así que pasa por RLS: un admin ve a
-todos, cualquier otro rol solo vería sus propias filas.
+El cálculo vive en SQL (supabase/migrations/20261001000300_calculo.sql). Este
+módulo solo lo llama y da formato. Las funciones SQL son SECURITY INVOKER: un
+admin ve a todos y cualquier otro usuario solo sus propias filas.
 
 Columnas:
   1. Días con reporte / días disponibles. Usa todos los días (libre y marcas).
-     Días disponibles = días de Daily en el rango menos el PTO registrado.
+     Días disponibles = días hábiles de la persona (lunes a viernes, sin
+     festivos de su país ni días no hábiles de Forte) sin PTO, desde el primer
+     Daily y ya cerrados (11:30 am, hora de Bogotá).
   2. Compromisos por día: promedio de compromisos de Hoy en los días que reportó.
   3. Ítems de Ayer hechos sobre total marcados. Sin extras y sin líneas sin
      marca. Una línea sin marca cuenta solo cuando el admin le asigna una.
@@ -41,81 +44,21 @@ def last_30_days(today=None):
     return today - timedelta(days=29), today
 
 
-def _pct(n, d):
-    return round(100.0 * n / d, 1) if d else None
+def _person_rows(conn, start, end, person_id=None, now=None):
+    """Filas de public.carga_cumplimiento (el cálculo vive en SQL). RLS filtra."""
+    sql = "SELECT * FROM carga_cumplimiento(?::date, ?::date" + (", ?::timestamptz)" if now else ")")
+    args = [start.isoformat(), end.isoformat()] + ([now.isoformat()] if now else [])
+    if person_id:
+        sql += " WHERE person_id = ?"
+        args.append(person_id)
+    rows = [dict(r) for r in conn.execute(sql + " ORDER BY persona", args)]
+    days = conn.execute("SELECT day, format FROM days WHERE day BETWEEN ? AND ? ORDER BY day",
+                        (start.isoformat(), end.isoformat())).fetchall()
+    return rows, days
 
 
-def _person_rows(conn, start, end, person_id=None):
-    """Una fila por persona con los conteos crudos del rango [start, end]."""
-    a, b = start.isoformat(), end.isoformat()
-    days = conn.execute("SELECT day, format FROM days WHERE day BETWEEN ? AND ? ORDER BY day", (a, b)).fetchall()
-    day_set = {d["day"] for d in days}
-    where_p = "AND p.id = ?" if person_id else ""
-    extra = (person_id,) if person_id else ()
-    people = conn.execute(f"SELECT p.id, p.name FROM people p WHERE TRUE {where_p} ORDER BY p.name", extra).fetchall()
-
-    def per_person(sql, *args):
-        return {r[0]: r for r in conn.execute(sql, (a, b, *args))}
-
-    reports = per_person(
-        """SELECT r.person_id, COUNT(*) total,
-                  SUM(CASE WHEN d.format <> 'libre' THEN 1 ELSE 0 END) estructurados
-           FROM reports r JOIN days d ON d.id = r.day_id
-           WHERE d.day BETWEEN ? AND ? GROUP BY r.person_id""")
-    pto = per_person(
-        """SELECT t.person_id, COUNT(*) n FROM pto t JOIN days d ON d.day = t.day
-           WHERE d.day BETWEEN ? AND ? GROUP BY t.person_id""")
-    hoy = per_person(
-        """SELECT r.person_id, COUNT(*) n,
-                  SUM(CASE WHEN c.streak_days = 3 THEN 1 ELSE 0 END) tercer_dia
-           FROM commitments c JOIN reports r ON r.id = c.report_id JOIN days d ON d.id = r.day_id
-           WHERE d.day BETWEEN ? AND ? AND d.format <> 'libre' AND c.section = 'hoy'
-           GROUP BY r.person_id""")
-    ayer = per_person(
-        """SELECT r.person_id,
-                  SUM(CASE WHEN c.mark IS NOT NULL THEN 1 ELSE 0 END) marcados,
-                  SUM(CASE WHEN c.mark = 'hecho' THEN 1 ELSE 0 END) hechos,
-                  SUM(CASE WHEN c.mark = 'no_tocado' THEN 1 ELSE 0 END) sin_tocar,
-                  SUM(CASE WHEN c.mark IS NULL THEN 1 ELSE 0 END) sin_marca
-           FROM commitments c JOIN reports r ON r.id = c.report_id JOIN days d ON d.id = r.day_id
-           WHERE d.day BETWEEN ? AND ? AND d.format <> 'libre' AND c.section = 'ayer' AND c.is_extra = 0
-           GROUP BY r.person_id""")
-    review = per_person(
-        """SELECT ri.person_id, COUNT(*) n FROM review_items ri JOIN days d ON d.day = ri.day
-           WHERE d.day BETWEEN ? AND ? AND d.format <> 'libre' AND ri.kind = 'linea'
-             AND ri.status = 'pendiente' AND ri.section IN ('ayer', 'extra')
-           GROUP BY ri.person_id""")
-
-    out = []
-    for p in people:
-        pid = p["id"]
-        rep = reports.get(pid)
-        total = rep["total"] if rep else 0
-        structured = (rep["estructurados"] or 0) if rep else 0
-        n_pto = pto[pid]["n"] if pid in pto else 0
-        available = len(day_set) - n_pto
-        h = hoy.get(pid)
-        y = ayer.get(pid)
-        marked = (y["marcados"] or 0) if y else 0
-        out.append({
-            "person_id": pid, "persona": p["name"],
-            "dias_reporte": total, "dias_disponibles": available, "dias_pto": n_pto,
-            "tasa_reporte": _pct(total, available),
-            "dias_marcas_reportados": structured,
-            "compromisos": h["n"] if h else 0,
-            "compromisos_por_dia": round(h["n"] / structured, 1) if h and structured else (0.0 if structured else None),
-            "hechos": (y["hechos"] or 0) if y else 0, "marcados": marked,
-            "pct_hechos": _pct((y["hechos"] or 0) if y else 0, marked),
-            "sin_tocar": (y["sin_tocar"] or 0) if y else 0,
-            "pct_sin_tocar": _pct((y["sin_tocar"] or 0) if y else 0, marked),
-            "alertas_tercer_dia": (h["tercer_dia"] or 0) if h else 0,
-            "sin_marca": ((y["sin_marca"] or 0) if y else 0) + (review[pid]["n"] if pid in review else 0),
-        })
-    return out, days
-
-
-def table(conn, start, end, sort="pct_hechos", desc=True):
-    rows, days = _person_rows(conn, start, end)
+def table(conn, start, end, sort="pct_hechos", desc=True, now=None):
+    rows, days = _person_rows(conn, start, end, now=now)
     sort = sort if sort in SORT_KEYS else "pct_hechos"
 
     def key(r):
@@ -137,21 +80,17 @@ def table(conn, start, end, sort="pct_hechos", desc=True):
     }
 
 
-def weekly(conn, person_id, start, end):
-    """Evolución semanal (semanas de lunes a domingo) de las columnas 1, 3 y 4."""
-    weeks = []
-    cur = start - timedelta(days=start.weekday())
-    while cur <= end:
-        a, b = max(cur, start), min(cur + timedelta(days=6), end)
-        rows, days = _person_rows(conn, a, b, person_id)
-        if days and rows:
-            r = rows[0]
-            weeks.append({"semana": cur.isoformat(), "desde": a.isoformat(), "hasta": b.isoformat(),
-                          "dias_libre": sum(1 for d in days if d["format"] == "libre"),
-                          **{k: r[k] for k in ("dias_reporte", "dias_disponibles", "dias_pto", "tasa_reporte",
-                                               "hechos", "marcados", "pct_hechos", "sin_tocar", "pct_sin_tocar")}})
-        cur += timedelta(days=7)
-    return weeks
+def weekly(conn, person_id, start, end, now=None):
+    """Evolución semanal (lunes a domingo) de las columnas 1, 3 y 4. Cálculo en SQL."""
+    sql = "SELECT * FROM evolucion_semanal(?, ?::date, ?::date" + (", ?::timestamptz)" if now else ")")
+    args = [person_id, start.isoformat(), end.isoformat()] + ([now.isoformat()] if now else [])
+    out = []
+    for r in conn.execute(sql, args):
+        w = dict(r)
+        for k in ("semana", "desde", "hasta"):
+            w[k] = w[k].isoformat()
+        out.append(w)
+    return out
 
 
 def fmt_days(r):

@@ -43,15 +43,25 @@ class _Keys:
         return f"{base}-{n}"
 
 
-def _upsert_person(conn, p):
+def load_countries(path=None):
+    path = path or config.COUNTRIES_FILE
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
+
+
+def _upsert_person(conn, p, countries=None):
     row = conn.execute("SELECT id FROM people WHERE code = ? OR slack_user_id = ?",
                        (p["codigo"], p.get("slack_id"))).fetchone()
     if row:
         conn.execute("UPDATE people SET code = ?, slack_user_id = ?, name = ? WHERE id = ?",
                      (p["codigo"], p.get("slack_id"), p["nombre"], row["id"]))
         return row["id"]
-    return conn.insert("INSERT INTO people (slack_user_id, code, name) VALUES (?, ?, ?)",
-                        (p.get("slack_id"), p["codigo"], p["nombre"]))
+    # El país solo se pone al crear la persona. Después lo administra el admin.
+    return conn.insert("INSERT INTO people (slack_user_id, code, name, country) VALUES (?, ?, ?, ?)",
+                       (p.get("slack_id"), p["codigo"], p["nombre"], (countries or {}).get(p["codigo"], "CO")))
 
 
 def _upsert_day(conn, d):
@@ -225,7 +235,7 @@ def _apply_starting_point(conn, person_id, sp, warnings):
                             "punto de partida; no aparece como Ayer")
 
 
-def run_import(conn, data, source="archivo", log=print):
+def run_import(conn, data, source="archivo", log=print, countries=None):
     if config.IMPORT_DISABLED:
         raise SystemExit("Importación apagada (DAILY_IMPORT_DISABLED=1).")
     run_id = conn.insert("INSERT INTO import_runs (started_at, status) VALUES (?, 'corriendo')",
@@ -233,7 +243,8 @@ def run_import(conn, data, source="archivo", log=print):
     conn.commit()
     warnings = []
     try:
-        people = {p["codigo"]: _upsert_person(conn, p) for p in data["personas"]}
+        countries = load_countries() if countries is None else countries
+        people = {p["codigo"]: _upsert_person(conn, p, countries) for p in data["personas"]}
         conn.execute("DELETE FROM pto WHERE origin = 'slack'")
         for entry in data.get("pto", []):
             for day in entry["fechas"]:

@@ -10,7 +10,8 @@ from daily_report.users import add
 from tests.pg import TestDB
 from tests.test_import_json import L, a, c, data, day, rep
 
-ADMIN, OTHER_ADMIN, ANA, NOBODY = "jefe@ejemplo.com", "otro@ejemplo.com", "ana@ejemplo.com", "nadie@ejemplo.com"
+ADMIN, OTHER_ADMIN, ANA, NOBODY = ("jefe.prueba@forteglobal.com", "otro.prueba@forteglobal.com",
+                                  "ana.prueba@forteglobal.com", "nadie.prueba@forteglobal.com")
 
 
 def metrics_data():

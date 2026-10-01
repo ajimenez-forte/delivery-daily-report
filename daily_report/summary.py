@@ -20,13 +20,16 @@ def build_summary(conn, data=None):
     days = {r["format"]: r["n"] for r in q("SELECT format, COUNT(*) n FROM days WHERE origin='slack' GROUP BY format")}
     first_last = conn.execute("SELECT MIN(day), MAX(day) FROM days WHERE origin='slack'").fetchone()
     per_person = []
+    # Días disponibles y PTO salen del mismo cálculo que usa la app (días hábiles por país).
+    calc = {r["person_id"]: r for r in q("SELECT * FROM carga_cumplimiento(?::date, ?::date)",
+                                         first_last[0], first_last[1])} if first_last[0] else {}
     for p in q("SELECT id, name FROM people ORDER BY name"):
         rep = conn.execute(
             """SELECT SUM(CASE WHEN r.format='libre' THEN 1 ELSE 0 END) libre, SUM(CASE WHEN r.format='marcas' THEN 1 ELSE 0 END) marcas, COUNT(*) total
                FROM reports r WHERE r.origin='slack' AND r.person_id=?""", (p["id"],)).fetchone()
-        pto = one("""SELECT COUNT(*) FROM pto t JOIN days d ON d.day = t.day
-                     WHERE t.person_id = ? AND d.origin = 'slack'""", p["id"])
-        workdays = sum(days.values()) - pto
+        c = calc.get(p["id"])
+        pto = c["dias_pto"] if c else 0
+        workdays = c["dias_disponibles"] if c else 0
         marks = {r["mark"]: r["n"] for r in q(
             """SELECT c.mark, COUNT(*) n FROM commitments c JOIN reports r ON r.id = c.report_id
                WHERE r.person_id = ? AND c.origin='slack' AND c.section='ayer' AND c.is_extra=0
@@ -36,7 +39,7 @@ def build_summary(conn, data=None):
         per_person.append({
             "persona": p["name"], "libre": rep["libre"] or 0, "marcas": rep["marcas"] or 0,
             "total": rep["total"], "dias_pto": pto, "dias_habiles_sin_pto": workdays,
-            "tasa_reporte_pct": round(100 * rep["total"] / workdays, 1) if workdays else None,
+            "tasa_reporte_pct": c["tasa_reporte"] if c else None,
             "ayer": {"hecho": marks.get("hecho", 0), "pendiente": marks.get("pendiente", 0),
                      "no_tocado": marks.get("no_tocado", 0), "sin_marca": to_review},
             "ayer_en_la_app": one("""SELECT COUNT(*) FROM commitments c JOIN reports r ON r.id = c.report_id

@@ -7,7 +7,7 @@ La base es Postgres, con Row Level Security (ver `docs/CUMPLIMIENTO.md`). Requie
 ## Correr la importación
 
 ```bash
-export DATABASE_URL=postgresql://...          # dueño de las tablas
+# DATABASE_URL va en .env.local (ver docs/SUPABASE.md)
 python -m daily_report.import_json            # crea tablas y políticas, luego importa
 python -m daily_report.summary                # vuelve a mostrar el resumen
 ```
@@ -90,7 +90,7 @@ Sin `DAILY_SLACK_IMPORT_ENABLED=1`, el comando no hace nada y sale con un aviso.
 
 ## Pruebas
 
-Las pruebas crean una base nueva por prueba en un Postgres local y la borran al terminar. Necesitan un usuario que pueda crear bases y roles:
+Las pruebas crean una base nueva por prueba en un Postgres local y la borran al terminar. Aplican `tests/supabase_stub.sql` (imita el esquema `auth` y los roles de Supabase) y después las mismas migraciones de `supabase/migrations/`. Necesitan un usuario que pueda crear bases y roles:
 
 ```bash
 export DAILY_TEST_DATABASE_URL="postgresql://postgres@/postgres?host=/tmp/pgdaily&port=55432"

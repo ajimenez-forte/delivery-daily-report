@@ -10,7 +10,7 @@ Rango por defecto: los últimos 30 días contando hoy (hora de Bogotá). El 1 de
 
 | # | Columna | Cálculo | Días que usa |
 |---|---|---|---|
-| 1 | Días con reporte | Días con reporte / días disponibles (%). Disponibles = días de Daily en el rango menos el PTO registrado. Si hubo PTO, se muestra cuántos días entre paréntesis. | Todos |
+| 1 | Días con reporte | Días con reporte / días disponibles (%). Disponibles = días hábiles de la persona sin PTO (ver abajo). Si hubo PTO, se muestra cuántos días entre paréntesis. | Todos |
 | 2 | Compromisos por día | Compromisos de Hoy declarados / días que reportó | Marcas |
 | 3 | Ayer hechos | ✅ / total marcados (✅ + 🔄 + ⬜) | Marcas |
 | 4 | Sin tocar | ⬜ y % sobre total marcados | Marcas |
@@ -19,6 +19,7 @@ Rango por defecto: los últimos 30 días contando hoy (hora de Bogotá). El 1 de
 
 - En las columnas 3 y 4 no cuentan ni los extras ni las líneas sin marca. Una línea sin marca entra solo cuando el admin le asigna una marca desde Revisión, con la sección Ayer. Desde ese momento sale de la columna 6.
 - Si el rango incluye días en formato libre, la vista lo avisa.
+- **Días hábiles:** lunes a viernes, sin los festivos oficiales del país de la persona (Colombia, o Costa Rica para Laura) ni los días no hábiles de Forte que agregue el admin. Un día cuenta como disponible desde el primer Daily registrado y solo después del cierre de las 11:30 am, hora de Bogotá. Un PTO que cae en festivo no se cuenta dos veces.
 - El orden por defecto es por % de Ayer hechos, de mayor a menor. Cualquier encabezado ordena por esa columna, y un segundo clic invierte el orden. Las personas sin datos van al final.
 - Debajo de la tabla siempre aparece este texto: "Todo es autorreportado. Mide cómo reporta cada persona, no cuánto produce. Una tarea de datos y una llamada de seguimiento pesan lo mismo."
 - **Exportar a CSV** baja la tabla con el mismo rango y orden. El archivo incluye la nota de formato libre y el texto anterior.
@@ -32,45 +33,25 @@ Al hacer clic en una persona se abre `/persona?id=...`:
 
 ## Row Level Security
 
-Hay dos conexiones a Postgres, con credenciales solo por variables de entorno:
+La app entra a Supabase con el token del usuario. Postgres lee la identidad con `auth.uid()` y `auth.jwt()`, y las funciones `app_user_email()`, `app_is_user()`, `app_is_admin()` y `app_person_id()` exigen que:
 
-| Variable | Rol | Para qué |
-|---|---|---|
-| `DATABASE_URL` | dueño de las tablas | importación, migraciones, `users` |
-| `DAILY_APP_DATABASE_URL` | `daily_app` (`DAILY_APP_DB_ROLE`), sin `BYPASSRLS` | la app y la sección de administrador |
+- el correo del token coincida con el de `auth.users`;
+- esté verificado;
+- sea exactamente `@forteglobal.com`;
+- esté en la lista `users` y activo.
 
-En cada petición, la app abre la conexión como `daily_app` y declara el correo del usuario (`app.user_email`). Postgres filtra con estas políticas:
+Si algo falla, no se ve nada. Todo está en `supabase/migrations/20261001000100_acceso.sql`.
 
-| Tablas | admin | member | sin usuario registrado |
+| Tablas | admin | member | sin acceso |
 |---|---|---|---|
 | `people`, `users` | todo | solo su fila | nada |
-| `days` | todo | lectura | nada |
+| `days`, `holidays`, `forte_non_working_days` | todo | lectura | nada |
 | `reports`, `pto`, `commitments`, `operation_items`, `blockers`, `report_messages` | todo | solo lo suyo | nada |
 | `review_items`, `import_runs`, `launch_approvals` | todo | nada | nada |
 | `admin_notes` | solo las que escribió | nada | nada |
 
-Desde la etapa 2, el servidor además responde 403 a quien no es admin. Pero aunque alguien se salte el servidor y consulte la base con el rol de la app, solo ve sus propias filas.
+El rol `anon` (sin sesión) no tiene permisos sobre ninguna tabla. Desde la etapa 2, el servidor además responde 403 a quien no es admin.
 
-### Puesta en marcha (una vez, como administrador de Postgres)
+El cálculo de esta vista está en `supabase/migrations/20261001000300_calculo.sql` (`carga_cumplimiento`, `evolucion_semanal`). Son funciones `SECURITY INVOKER`, así que RLS aplica: un miembro que las llame solo ve su propia fila.
 
-```sql
-CREATE ROLE daily_owner LOGIN PASSWORD '...';
-CREATE ROLE daily_app LOGIN PASSWORD '...' NOSUPERUSER NOBYPASSRLS;
-CREATE DATABASE daily OWNER daily_owner ENCODING 'UTF8';
-```
-
-Después:
-
-```bash
-export DATABASE_URL=postgresql://daily_owner:...@host/daily
-export DAILY_APP_DATABASE_URL=postgresql://daily_app:...@host/daily
-python -m daily_report.import_json                          # crea tablas, políticas y permisos
-python -m daily_report.users add tu-correo@forteglobal.com admin
-python -m daily_report.users add persona@forteglobal.com member --persona LT
-```
-
-### Quién es el usuario
-
-La identidad sale solo del token firmado por Supabase Auth (login con Google, cuentas @forteglobal.com). La app nunca toma el correo de un parámetro, encabezado o cookie propia. Esto se construye en las etapas 1 y 2.
-
-En las pruebas de Python, la conexión declara el usuario directamente en la base para simular la sesión. Eso no es una vía de entrada para el navegador.
+La configuración de Supabase, las variables y cómo probar RLS con un usuario están en `docs/SUPABASE.md`.

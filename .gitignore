@@ -4,3 +4,7 @@ data/
 *.db
 people.json
 .env
+# Variables locales con llaves y contraseñas. Nunca se suben.
+.env*.local
+.env.*
+!.env.example
