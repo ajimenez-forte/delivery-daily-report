@@ -4,7 +4,7 @@ Vista de la sección de administrador (`/carga`). Solo la ve el rol `admin`. El 
 
 ## Columnas
 
-Rango por defecto: el mes en curso (hora de Bogotá).
+Rango por defecto: los últimos 30 días contando hoy (hora de Bogotá). El 1 de octubre, por ejemplo, va del 2 de septiembre al 1 de octubre.
 
 | # | Columna | Cálculo | Días que usa |
 |---|---|---|---|

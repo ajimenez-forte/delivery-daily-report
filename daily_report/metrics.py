@@ -15,7 +15,6 @@ Columnas:
      líneas de Ayer guardadas sin marca.
 Las columnas 2 a 6 solo usan días con formato de marcas (o de la app).
 """
-import calendar
 import csv
 import io
 from datetime import date, datetime, timedelta
@@ -36,10 +35,10 @@ DISCLAIMER = ("Todo es autorreportado. Mide cómo reporta cada persona, no cuán
               "Una tarea de datos y una llamada de seguimiento pesan lo mismo.")
 
 
-def current_month(today=None):
+def last_30_days(today=None):
+    """Rango por defecto: los últimos 30 días, contando hoy."""
     today = today or datetime.now(config.TZ).date()
-    last = calendar.monthrange(today.year, today.month)[1]
-    return today.replace(day=1), today.replace(day=last)
+    return today - timedelta(days=29), today
 
 
 def _pct(n, d):
@@ -204,7 +203,7 @@ def save_note(conn, person_id, body):
 
 
 def parse_range(qs, today=None):
-    d0, d1 = current_month(today)
+    d0, d1 = last_30_days(today)
     try:
         start = date.fromisoformat(qs.get("desde") or d0.isoformat())
         end = date.fromisoformat(qs.get("hasta") or d1.isoformat())

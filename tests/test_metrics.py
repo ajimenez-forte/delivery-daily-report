@@ -83,9 +83,11 @@ class MetricsTest(_Setup, unittest.TestCase):
         self.assertIn("Ana Prueba", csv_text)
         self.assertIn(metrics.DISCLAIMER, csv_text)
 
-    def test_current_month_default(self):
-        self.assertEqual(metrics.current_month(date(2026, 10, 1)), (date(2026, 10, 1), date(2026, 10, 31)))
-        self.assertEqual(metrics.parse_range({}, date(2026, 2, 10)), (date(2026, 2, 1), date(2026, 2, 28)))
+    def test_default_range_is_last_30_days(self):
+        self.assertEqual(metrics.last_30_days(date(2026, 10, 1)), (date(2026, 9, 2), date(2026, 10, 1)))
+        self.assertEqual(metrics.parse_range({}, date(2026, 3, 1)), (date(2026, 1, 31), date(2026, 3, 1)))
+        self.assertEqual(metrics.parse_range({"desde": "2026-09-01", "hasta": "2026-09-30"}, date(2026, 10, 1)),
+                         (date(2026, 9, 1), date(2026, 9, 30)))
 
 
 class RowLevelSecurityTest(_Setup, unittest.TestCase):
