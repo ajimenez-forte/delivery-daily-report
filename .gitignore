@@ -1,8 +1,8 @@
 __pycache__/
 *.pyc
-data/
+/data/
 *.db
-people.json
+/people.json
 .env
 # Variables locales con llaves y contraseñas. Nunca se suben.
 .env*.local
