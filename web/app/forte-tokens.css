@@ -1,0 +1,60 @@
+/*
+ * Tokens de diseño de Forte. PROVISIONALES: los colores y las fuentes de marca
+ * salen del Brand Kit "NEW Forte Branding 2.0" en Canva. Cuando estén, solo se
+ * cambia este archivo.
+ */
+:root {
+  color-scheme: light;
+  --forte-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --forte-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --forte-bg: #fcfcfb;
+  --forte-surface: #ffffff;
+  --forte-raw: #f2f1ee;
+  --forte-fg: #0b0b0b;
+  --forte-muted: #52514e;
+  --forte-line: #e4e3df;
+  --forte-primary: #1f5fae;
+  --forte-primary-fg: #ffffff;
+  --forte-series: #2a78d6;
+  --forte-ok: #1a7f37;
+  --forte-warn: #9a6700;
+  --forte-danger: #b42318;
+
+  --forte-radius: 8px;
+  --forte-space: 16px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --forte-bg: #1a1a19;
+    --forte-surface: #222220;
+    --forte-raw: #252523;
+    --forte-fg: #ffffff;
+    --forte-muted: #c3c2b7;
+    --forte-line: #3a3936;
+    --forte-primary: #8ab4f8;
+    --forte-primary-fg: #0b0b0b;
+    --forte-series: #3987e5;
+    --forte-ok: #4ac26b;
+    --forte-warn: #d4a72c;
+    --forte-danger: #f97066;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --forte-bg: #1a1a19;
+  --forte-surface: #222220;
+  --forte-raw: #252523;
+  --forte-fg: #ffffff;
+  --forte-muted: #c3c2b7;
+  --forte-line: #3a3936;
+  --forte-primary: #8ab4f8;
+  --forte-primary-fg: #0b0b0b;
+  --forte-series: #3987e5;
+  --forte-ok: #4ac26b;
+  --forte-warn: #d4a72c;
+  --forte-danger: #f97066;
+}

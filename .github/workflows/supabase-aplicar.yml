@@ -1,0 +1,40 @@
+# Aplica las migraciones e importa la historia en el Supabase de Forte.
+#
+# Solo corre a mano (Actions > "Aplicar en Supabase" > Run workflow). Escribe en la
+# base compartida, así que además pide aprobación en el environment "supabase-forte"
+# (configúralo con Alejo como revisor obligatorio). La conexión sale del secreto
+# DATABASE_URL de ese environment: nunca aparece en el código ni en el chat.
+# Interruptor: si la variable del repo SUPABASE_APLICAR_ACTIVO no es "true", no hace nada.
+name: Aplicar en Supabase
+
+on:
+  workflow_dispatch:
+    inputs:
+      importar:
+        description: "¿También importar la historia? (si no, solo aplica migraciones)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  aplicar:
+    if: vars.SUPABASE_APLICAR_ACTIVO == 'true'
+    runs-on: ubuntu-latest
+    environment: supabase-forte
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install psycopg2-binary==2.9.13
+      - name: Migraciones
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -c "from daily_report import db; db.migrate(db.connect()); print('Migraciones aplicadas')"
+      - name: Importación y resumen
+        if: inputs.importar
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m daily_report.import_json | grep -v " listo$"

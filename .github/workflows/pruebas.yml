@@ -1,0 +1,55 @@
+# Pruebas automáticas. No usa secretos ni toca Supabase: levanta su propio Postgres.
+name: Pruebas
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DAILY_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      E2E_AUTHENTICATOR_PASSWORD: authenticator-ci
+      POSTGREST_BIN: /usr/local/bin/postgrest
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install psycopg2-binary==2.9.13
+
+      - name: Pruebas de Python (cálculo, RLS, identidad, días hábiles)
+        run: python -m unittest -v
+
+      - name: Instalar PostgREST (el mismo componente de la API de Supabase)
+        run: |
+          curl -sSL -o /tmp/pgrst.tar.xz https://github.com/PostgREST/postgrest/releases/download/v13.0.4/postgrest-v13.0.4-linux-static-x86-64.tar.xz
+          sudo tar -xJf /tmp/pgrst.tar.xz -C /usr/local/bin postgrest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npm run typecheck
+        working-directory: web
+
+      - name: Pruebas de punta a punta (403, suplantación, RLS con token real)
+        run: npm test
+        working-directory: web

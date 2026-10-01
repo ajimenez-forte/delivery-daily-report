@@ -33,3 +33,13 @@ $$ SELECT nullif(auth.jwt() ->> 'sub', '')::uuid $$;
 
 GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role, supabase_auth_admin;
 GRANT EXECUTE ON FUNCTION auth.jwt(), auth.uid() TO anon, authenticated, service_role, supabase_auth_admin;
+
+-- Rol con el que PostgREST se conecta (como en Supabase). Cambia a anon o
+-- authenticated según el token que verifica.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticator') THEN
+        CREATE ROLE authenticator LOGIN NOINHERIT;
+    END IF;
+END $$;
+GRANT anon, authenticated TO authenticator;

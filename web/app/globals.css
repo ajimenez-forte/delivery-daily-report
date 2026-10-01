@@ -1,0 +1,44 @@
+@import "./forte-tokens.css";
+
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.45 var(--forte-font); color: var(--forte-fg); background: var(--forte-bg); }
+main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+a { color: var(--forte-primary); }
+h1 { font-size: 22px; margin: 8px 0 12px; }
+h2 { font-size: 18px; margin: 28px 0 8px; }
+.top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 12px 16px;
+  border-bottom: 1px solid var(--forte-line); background: var(--forte-surface); }
+.top nav { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.top .who { margin-left: auto; color: var(--forte-muted); font-size: 13px; display: flex; gap: 8px; align-items: center; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; }
+td, th { border-bottom: 1px solid var(--forte-line); padding: 6px 8px; text-align: left; vertical-align: top; }
+th a { color: var(--forte-fg); text-decoration: none; }
+.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+th.n { white-space: normal; }
+.small { font-size: 12px; }
+.muted { color: var(--forte-muted); }
+.ok { color: var(--forte-ok); font-weight: 600; }
+.warn { color: var(--forte-warn); font-weight: 600; }
+.danger { color: var(--forte-danger); font-weight: 600; }
+.raw { font-family: var(--forte-font-mono); white-space: pre-wrap; background: var(--forte-raw); padding: 4px 6px;
+  border-radius: 4px; }
+.card { background: var(--forte-surface); border: 1px solid var(--forte-line); border-radius: var(--forte-radius);
+  padding: 12px 16px; margin: 12px 0; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+input, select, textarea, button { font: inherit; }
+input[type="text"], input[type="email"], textarea { width: 100%; padding: 6px 8px; border: 1px solid var(--forte-line);
+  border-radius: 6px; background: var(--forte-surface); color: var(--forte-fg); }
+textarea { min-height: 140px; }
+button, .button { cursor: pointer; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--forte-line);
+  background: var(--forte-surface); color: var(--forte-fg); text-decoration: none; display: inline-block; }
+button.primary, .button.primary { background: var(--forte-primary); color: var(--forte-primary-fg); border-color: transparent; }
+.multiples { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.chart svg { width: 100%; height: auto; }
+.chart .grid { stroke: var(--forte-line); stroke-width: 1; }
+.chart .axis { fill: var(--forte-muted); font-size: 11px; }
+.chart .line { fill: none; stroke: var(--forte-series); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .dot { fill: var(--forte-series); stroke: var(--forte-surface); stroke-width: 2; }
+.chart .hit { fill: transparent; }
+.chart figcaption { font-weight: 600; margin-bottom: 4px; }
+@media (max-width: 640px) { td, th { padding: 6px 4px; } main { padding: 12px; } }

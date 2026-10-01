@@ -32,6 +32,7 @@ Opción sin instalar nada:
    3. `20261001000200_festivos.sql`
    4. `20261001000300_calculo.sql`
    5. `20261002000000_zona_horaria.sql`
+   6. `20261002000100_admin.sql`
 
 Se pueden volver a correr sin dañar nada.
 
@@ -96,3 +97,35 @@ Todas las filas que devuelva deben tener el mismo `person_id`. Con un token alte
 - Colombia y Costa Rica 2026–2027 salen de `scripts/generar_festivos.py` (librería `holidays`, que cita las leyes de cada país). Para Costa Rica solo se cargan los feriados de pago obligatorio.
 - Para otro año: `python scripts/generar_festivos.py 2028` y luego aplicar la migración que genera.
 - Los días no hábiles propios de Forte se guardan en `forte_non_working_days`. En la etapa 2 los manejas desde la sección Usuarios.
+
+## 7. Login con Google (etapa 2)
+
+1. **Google Cloud Console**, con la cuenta de Forte:
+   1. En *APIs & Services > OAuth consent screen*, elige el tipo **Internal**. Así Google solo deja entrar cuentas de Forte, y es una capa más además de la base.
+   2. En *Credentials > Create credentials > OAuth client ID*, elige el tipo *Web application*.
+   3. En *Authorized redirect URIs*, pon `https://TU-PROYECTO.supabase.co/auth/v1/callback` (la URL de tu proyecto sale de Project Settings > Data API).
+   4. Copia el Client ID y el Client Secret.
+2. **Supabase > Authentication > Sign In / Providers > Google**: actívalo, pega el Client ID y el Client Secret, y guarda. Estos dos valores quedan en Supabase, no en `.env.local` ni en Vercel.
+3. **Supabase > Authentication > Sign In / Providers > Email**: desactívalo. La app solo usa Google.
+4. **Supabase > Authentication > URL Configuration**:
+   - *Site URL*: la dirección de producción en Vercel (por ejemplo `https://daily-delivery.vercel.app`).
+   - *Redirect URLs*: `https://daily-delivery.vercel.app/auth/callback` y, para las versiones de prueba de Vercel, `https://*-forte.vercel.app/auth/callback`. Cambia `forte` por el nombre del equipo de Vercel.
+5. **Supabase > Project Settings > JWT Keys**: lo ideal es que diga *ECC (P-256)*. Así la app verifica la firma de cada sesión sin llamar a Supabase. Con la llave antigua (HS256) también funciona, pero cada verificación hace una llamada.
+
+## 8. Vercel (etapa 2)
+
+1. Con la cuenta de Forte: *Add New > Project* e importa el repo `delivery-daily-report`.
+2. **Root Directory**: `web`. El framework lo detecta solo (Next.js).
+3. **Environment Variables**: `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Nada más. `DATABASE_URL` no va en Vercel.
+4. Mientras no haya merge a `main`, usa la versión de prueba (*Preview*) que Vercel arma para la rama `claude/clever-bohr-j2erqs`.
+
+## 9. Aplicar en Supabase sin terminal (GitHub Actions)
+
+Desde el entorno de Claude no hay salida de red hacia Supabase. Por eso las migraciones y la importación corren en GitHub, con un flujo que solo se ejecuta cuando le das clic:
+
+1. En GitHub, ve al repo > *Settings > Environments > New environment* y créalo con el nombre `supabase-forte`. Marca *Required reviewers* y ponte tú, así cada corrida espera tu aprobación.
+2. En ese environment, en *Environment secrets > Add secret*: nombre `DATABASE_URL`, valor la URI del Session pooler (paso 1).
+3. En *Settings > Secrets and variables > Actions > Variables*, crea `SUPABASE_APLICAR_ACTIVO` con valor `true`. Ese es el interruptor: si lo pones en `false`, el flujo no hace nada.
+4. Ve a *Actions > Aplicar en Supabase > Run workflow* y apruébalo cuando lo pida. El resumen de la importación queda en el registro de la corrida.
+
+GitHub solo muestra el botón *Run workflow* si el archivo del flujo está en la rama principal. Por eso este paso necesita que apruebes pasar solo `.github/workflows/supabase-aplicar.yml` a `main`.

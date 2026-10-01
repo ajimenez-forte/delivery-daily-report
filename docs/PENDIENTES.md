@@ -1,21 +1,20 @@
 # Pendientes por etapa
 
-## Etapa 2 (Next.js, login, administrador)
+## Etapa 2 (hecho)
 
-- **Prueba del 403 del administrador.** Era `AdminServerTest.test_access`, retirada en la etapa 0 junto con el servidor de Python. Debe volver contra las rutas de Next.js:
-  - admin recibe 200 en Carga y cumplimiento, en el CSV, en el dashboard individual, en Revisión y en Resumen;
-  - un member, un correo que no está en la lista y alguien sin sesión reciben 403 en todas;
-  - un POST de notas sin el mismo origen recibe 403.
-- **Prueba de suplantación con tokens reales** (Supabase local con `supabase start` en GitHub Actions). Todos estos intentos deben fallar:
-  1. `?email=` o `?user=` con el correo del admin;
-  2. los encabezados `X-Forwarded-Email` y `X-User`;
-  3. una cookie de sesión editada a mano;
-  4. un JWT con el correo del admin firmado con otra llave;
-  5. un correo de otro dominio que sí está en `users` como admin.
+- La prueba del 403 del administrador volvió contra las rutas de Next.js (`web/tests/e2e/acceso.test.ts`).
+  - El admin recibe 200 en Importación, Carga y cumplimiento, el CSV, el dashboard individual, Revisión, Usuarios y Boletín.
+  - Un member, un correo fuera de la lista y otro dominio listado como admin reciben 403 en todas.
+  - Sin sesión, todas las rutas mandan al login y no muestran datos. Antes decía 403. Es un cambio: mandar al login es lo normal para quien no ha entrado.
+  - Un envío de notas desde otro origen no cambia nada. Lo bloquea la protección de Next.js para Server Actions.
+- La prueba de suplantación con tokens firmados de verdad la verifica PostgREST, el mismo componente de la API de Supabase. Los 5 intentos fallan.
+- La prueba con token real de que un miembro solo ve sus filas está automatizada.
+- Sección Usuarios: agregar o desactivar correos, rol, persona, zona horaria, país, Slack user ID, PTO y días no hábiles de Forte.
 
-  El caso 5, y los de token con correo que no coincide, ya se prueban en la base desde la etapa 1 (`tests/test_acceso.py`).
-- **Prueba con token real** de que un miembro solo ve sus filas (paso 5 de `docs/SUPABASE.md`).
-- **Sección Usuarios:** agregar o desactivar correos, rol, Slack user ID, país, PTO y días no hábiles de Forte.
+## Etapa 3
+
+- Flujo del miembro (los 7 pasos), horarios en la zona horaria de cada persona y regla del tercer día al guardar.
+- La racha de días seguidos de los compromisos nuevos se calcula hoy en Python (importación). Hay que pasarla a la app usando los mismos casos de prueba.
 
 ## Decisiones abiertas
 

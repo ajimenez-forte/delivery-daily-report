@@ -132,12 +132,8 @@ def get_note(conn, person_id):
 
 
 def save_note(conn, person_id, body):
-    now = datetime.now(config.TZ).isoformat(timespec="seconds")
-    conn.execute(
-        """INSERT INTO admin_notes (person_id, author_email, body, updated_at)
-           VALUES (?, app_user_email(), ?, ?)
-           ON CONFLICT (person_id, author_email) DO UPDATE SET body = excluded.body,
-             updated_at = excluded.updated_at""", (person_id, body, now))
+    """El autor lo pone la base con el correo del token (public.guardar_nota)."""
+    conn.execute("SELECT guardar_nota(?, ?)", (person_id, body))
     conn.commit()
 
 
