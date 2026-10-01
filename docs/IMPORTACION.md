@@ -2,18 +2,19 @@
 
 La historia del 27 de agosto al 30 de septiembre de 2026 viene del archivo `daily_historia_2026-08-27_a_09-30.json`, ya extraído de #wg_delivery_team-internal (`C08AHSM8VRS`). La importación lee ese archivo. No se conecta a Slack ni necesita token.
 
-Usa solo la librería estándar de Python 3.11, sin dependencias.
+La base es Postgres, con Row Level Security (ver `docs/CUMPLIMIENTO.md`). Requiere Python 3.11 y `pip install -r requirements.txt`.
 
 ## Correr la importación
 
 ```bash
-python -m daily_report.import_json        # lee el archivo y guarda en data/daily.db
-python -m daily_report.summary            # vuelve a mostrar el resumen
-python -m daily_report.admin              # http://127.0.0.1:8765
+export DATABASE_URL=postgresql://...          # dueño de las tablas
+python -m daily_report.import_json            # crea tablas y políticas, luego importa
+python -m daily_report.summary                # vuelve a mostrar el resumen
 ```
 
 - `--file otra_historia.json` o `DAILY_HISTORY_FILE` para usar otro archivo.
 - `DAILY_IMPORT_DISABLED=1` apaga la importación.
+- La importación usa la conexión del dueño, que no pasa por RLS. La app usa otra conexión (ver `docs/CUMPLIMIENTO.md`).
 
 Se puede correr las veces que haga falta. Cada línea tiene una clave estable (persona + sección + texto), así que no duplica. Las correcciones hechas a mano en Revisión se conservan entre corridas.
 
@@ -89,7 +90,10 @@ Sin `DAILY_SLACK_IMPORT_ENABLED=1`, el comando no hace nada y sale con un aviso.
 
 ## Pruebas
 
+Las pruebas crean una base nueva por prueba en un Postgres local y la borran al terminar. Necesitan un usuario que pueda crear bases y roles:
+
 ```bash
+export DAILY_TEST_DATABASE_URL="postgresql://postgres@/postgres?host=/tmp/pgdaily&port=55432"
 python -m unittest
 ```
 

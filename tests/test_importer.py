@@ -1,5 +1,6 @@
 import unittest
 
+from tests.pg import TestDB
 from daily_report import bridge, db, review, summary
 from daily_report.importer import run_import
 from tests.fixtures import ANA, BETO, FakeClient, build
@@ -11,7 +12,9 @@ def rows(conn, sql, *a):
 
 class ImportTest(unittest.TestCase):
     def setUp(self):
-        self.conn = db.connect(":memory:")
+        self.tdb = TestDB()
+        self.addCleanup(self.tdb.close)
+        self.conn = self.tdb.owner
         h, r = build()
         self.client = FakeClient(h, r)
         run_import(self.conn, self.client, "C1", log=lambda *_: None)

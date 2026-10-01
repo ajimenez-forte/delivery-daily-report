@@ -64,7 +64,7 @@ def _person(conn, msg, people_map):
         if row["name"] == uid and name != uid:
             conn.execute("UPDATE people SET name = ? WHERE id = ?", (name, row["id"]))
         return row["id"]
-    return conn.execute("INSERT INTO people (slack_user_id, name) VALUES (?, ?)", (uid, name)).lastrowid
+    return conn.insert("INSERT INTO people (slack_user_id, name) VALUES (?, ?)", (uid, name))
 
 
 def _upsert_day(conn, day, ts, fmt):
@@ -73,8 +73,8 @@ def _upsert_day(conn, day, ts, fmt):
         if row["slack_ts"] is None or float(ts) < float(row["slack_ts"]):
             conn.execute("UPDATE days SET slack_ts = ? WHERE id = ?", (ts, row["id"]))
         return row["id"]
-    return conn.execute("INSERT INTO days (day, origin, slack_ts, format) VALUES (?, 'slack', ?, ?)",
-                        (day.isoformat(), ts, fmt)).lastrowid
+    return conn.insert("INSERT INTO days (day, origin, slack_ts, format) VALUES (?, 'slack', ?, ?)",
+                        (day.isoformat(), ts, fmt))
 
 
 def _upsert_report(conn, day_id, person_id, ts, fmt):
@@ -84,11 +84,11 @@ def _upsert_report(conn, day_id, person_id, ts, fmt):
         if row["slack_ts"] is None or float(ts) < float(row["slack_ts"]):
             conn.execute("UPDATE reports SET slack_ts = ? WHERE id = ?", (ts, row["id"]))
         return row["id"]
-    return conn.execute(
+    return conn.insert(
         """INSERT INTO reports (day_id, person_id, origin, slack_ts, format, counts_for_rate,
                                 counts_for_compliance)
            VALUES (?, ?, 'slack', ?, ?, 1, ?)""",
-        (day_id, person_id, ts, fmt, 0 if fmt == "libre" else 1)).lastrowid
+        (day_id, person_id, ts, fmt, 0 if fmt == "libre" else 1))
 
 
 def _upsert_review(conn, kind, ts, line_key, day, person_id, section, raw, reason):
@@ -187,7 +187,7 @@ def refresh_report(conn, report_id):
         (report_id,))]
     n_block = conn.execute("SELECT COUNT(*) FROM blockers WHERE report_id = ?", (report_id,)).fetchone()[0]
     conn.execute("UPDATE reports SET raw_text = ?, has_blockers = ?, "
-                 "has_blockers_field = MAX(has_blockers_field, ?) WHERE id = ?",
+                 "has_blockers_field = GREATEST(has_blockers_field, ?) WHERE id = ?",
                  ("\n\n".join(texts), int(n_block > 0), int(n_block > 0), report_id))
 
 
@@ -196,8 +196,8 @@ def run_import(conn, client, channel=None, people_map=None, log=print):
         raise SystemExit("Importación apagada (DAILY_IMPORT_DISABLED=1).")
     channel = channel or config.CHANNEL_ID
     people_map = people_map or {}
-    run_id = conn.execute("INSERT INTO import_runs (started_at, status) VALUES (?, 'corriendo')",
-                          (_now(),)).lastrowid
+    run_id = conn.insert("INSERT INTO import_runs (started_at, status) VALUES (?, 'corriendo')",
+                          (_now(),))
     conn.commit()
     stats = {"hilos_daily": 0, "boletines_omitidos": 0, "mensajes_leidos": 0}
     try:
@@ -248,7 +248,7 @@ def main(argv=None):
     from .slack_client import ReadOnlySlackClient
     from .summary import format_summary, build_summary
     ap = argparse.ArgumentParser(description="Importa la historia del Daily desde Slack (solo lectura).")
-    ap.add_argument("--db", default=config.DB_PATH)
+    ap.add_argument("--db", default=None, help="URL de Postgres (por defecto DATABASE_URL)")
     ap.add_argument("--channel", default=config.CHANNEL_ID)
     ap.add_argument("--people", default=config.PEOPLE_FILE,
                     help="JSON {slack_user_id: nombre}, por si el token no trae nombres")
@@ -258,6 +258,7 @@ def main(argv=None):
               "Para activarla: DAILY_SLACK_IMPORT_ENABLED=1", file=sys.stderr)
         return 2
     conn = db.connect(args.db)
+    db.migrate(conn)
     run_import(conn, ReadOnlySlackClient(), args.channel, load_people_file(args.people))
     print()
     print(format_summary(build_summary(conn)))

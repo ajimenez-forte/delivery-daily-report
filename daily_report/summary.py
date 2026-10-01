@@ -22,7 +22,7 @@ def build_summary(conn, data=None):
     per_person = []
     for p in q("SELECT id, name FROM people ORDER BY name"):
         rep = conn.execute(
-            """SELECT SUM(r.format='libre') libre, SUM(r.format='marcas') marcas, COUNT(*) total
+            """SELECT SUM(CASE WHEN r.format='libre' THEN 1 ELSE 0 END) libre, SUM(CASE WHEN r.format='marcas' THEN 1 ELSE 0 END) marcas, COUNT(*) total
                FROM reports r WHERE r.origin='slack' AND r.person_id=?""", (p["id"],)).fetchone()
         pto = one("""SELECT COUNT(*) FROM pto t JOIN days d ON d.day = t.day
                      WHERE t.person_id = ? AND d.origin = 'slack'""", p["id"])
@@ -196,12 +196,13 @@ def format_summary(s):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--db", default=config.DB_PATH)
+    ap.add_argument("--db", default=None, help="URL de Postgres (por defecto DATABASE_URL)")
     ap.add_argument("--file", default=config.HISTORY_FILE, help="archivo de historia para comparar")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--aprobar", action="store_true", help="aprueba la última importación para lanzar")
     args = ap.parse_args(argv)
     conn = db.connect(args.db)
+    db.migrate(conn)
     if args.aprobar:
         approve(conn)
     data = None

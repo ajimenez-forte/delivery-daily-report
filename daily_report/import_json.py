@@ -50,8 +50,8 @@ def _upsert_person(conn, p):
         conn.execute("UPDATE people SET code = ?, slack_user_id = ?, name = ? WHERE id = ?",
                      (p["codigo"], p.get("slack_id"), p["nombre"], row["id"]))
         return row["id"]
-    return conn.execute("INSERT INTO people (slack_user_id, code, name) VALUES (?, ?, ?)",
-                        (p.get("slack_id"), p["codigo"], p["nombre"])).lastrowid
+    return conn.insert("INSERT INTO people (slack_user_id, code, name) VALUES (?, ?, ?)",
+                        (p.get("slack_id"), p["codigo"], p["nombre"]))
 
 
 def _upsert_day(conn, d):
@@ -60,8 +60,8 @@ def _upsert_day(conn, d):
         conn.execute("UPDATE days SET origin = 'slack', slack_ts = ?, format = ? WHERE id = ?",
                      (d["slack_ts_disparador"], d["formato"], row["id"]))
         return row["id"]
-    return conn.execute("INSERT INTO days (day, origin, slack_ts, format) VALUES (?, 'slack', ?, ?)",
-                        (d["fecha"], d["slack_ts_disparador"], d["formato"])).lastrowid
+    return conn.insert("INSERT INTO days (day, origin, slack_ts, format) VALUES (?, 'slack', ?, ?)",
+                        (d["fecha"], d["slack_ts_disparador"], d["formato"]))
 
 
 def _upsert_report(conn, day_id, person_id, ts, fmt, raw_text, b_status, b_note):
@@ -76,17 +76,17 @@ def _upsert_report(conn, day_id, person_id, ts, fmt, raw_text, b_status, b_note)
                           has_blockers = ?, blockers_status = ?, blockers_note = ? WHERE id = ?""",
                      (*vals, row["id"]))
         return row["id"]
-    return conn.execute(
+    return conn.insert(
         """INSERT INTO reports (day_id, person_id, origin, slack_ts, format, raw_text, counts_for_rate,
              counts_for_compliance, has_blockers_field, has_blockers, blockers_status, blockers_note)
-           VALUES (?, ?, 'slack', ?, ?, ?, 1, ?, ?, ?, ?, ?)""", (day_id, person_id, *vals)).lastrowid
+           VALUES (?, ?, 'slack', ?, ?, ?, 1, ?, ?, ?, ?, ?)""", (day_id, person_id, *vals))
 
 
 def _sync(conn, table, report_id, ts, rows, cols):
     """Deja en `table` exactamente estas filas no manuales del reporte."""
     keys = [r["line_key"] for r in rows]
-    conn.execute(f"DELETE FROM {table} WHERE report_id = ? AND manual = 0 AND line_key NOT IN "
-                 f"({','.join('?' * len(keys))})", (report_id, *keys))
+    conn.execute(f"DELETE FROM {table} WHERE report_id = ? AND manual = 0 AND line_key <> ALL(?::text[])",
+                 (report_id, keys))
     sets = ", ".join(f"{c} = excluded.{c}" for c in cols)
     for r in rows:
         conn.execute(
@@ -228,8 +228,8 @@ def _apply_starting_point(conn, person_id, sp, warnings):
 def run_import(conn, data, source="archivo", log=print):
     if config.IMPORT_DISABLED:
         raise SystemExit("Importación apagada (DAILY_IMPORT_DISABLED=1).")
-    run_id = conn.execute("INSERT INTO import_runs (started_at, status) VALUES (?, 'corriendo')",
-                          (_now(),)).lastrowid
+    run_id = conn.insert("INSERT INTO import_runs (started_at, status) VALUES (?, 'corriendo')",
+                          (_now(),))
     conn.commit()
     warnings = []
     try:
@@ -237,7 +237,7 @@ def run_import(conn, data, source="archivo", log=print):
         conn.execute("DELETE FROM pto WHERE origin = 'slack'")
         for entry in data.get("pto", []):
             for day in entry["fechas"]:
-                conn.execute("INSERT OR IGNORE INTO pto (person_id, day, origin) VALUES (?, ?, 'slack')",
+                conn.execute("INSERT INTO pto (person_id, day, origin) VALUES (?, ?, 'slack') ON CONFLICT DO NOTHING",
                              (people[entry["persona"]], day))
         for d in data["dias"]:
             day_id = _upsert_day(conn, d)
@@ -278,10 +278,11 @@ def load(path):
 def main(argv=None):
     from .summary import build_summary, format_summary
     ap = argparse.ArgumentParser(description="Importa la historia del Daily desde el archivo JSON.")
-    ap.add_argument("--db", default=config.DB_PATH)
+    ap.add_argument("--db", default=None, help="URL de Postgres (por defecto DATABASE_URL)")
     ap.add_argument("--file", default=config.HISTORY_FILE)
     args = ap.parse_args(argv)
     conn = db.connect(args.db)
+    db.migrate(conn)
     data = load(args.file)
     run_import(conn, data, source=args.file)
     print()

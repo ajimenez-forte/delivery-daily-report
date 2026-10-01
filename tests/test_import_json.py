@@ -2,6 +2,7 @@
 import copy
 import unittest
 
+from tests.pg import TestDB
 from daily_report import bridge, db, review, summary
 from daily_report.import_json import run_import
 
@@ -66,7 +67,9 @@ def rows(conn, sql, *args):
 
 class JsonImportTest(unittest.TestCase):
     def setUp(self):
-        self.conn = db.connect(":memory:")
+        self.tdb = TestDB()
+        self.addCleanup(self.tdb.close)
+        self.conn = self.tdb.owner
         self.data = data()
         run_import(self.conn, self.data, log=lambda *_: None)
 

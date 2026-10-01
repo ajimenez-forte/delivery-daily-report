@@ -5,7 +5,10 @@ from zoneinfo import ZoneInfo
 
 CHANNEL_ID = os.environ.get("DAILY_SLACK_CHANNEL", "C08AHSM8VRS")
 TOKEN_ENV = "SLACK_READONLY_TOKEN"
-DB_PATH = os.environ.get("DAILY_DB", os.path.join("data", "daily.db"))
+# Postgres. Credenciales solo por variables de entorno.
+DATABASE_URL = os.environ.get("DATABASE_URL")                  # dueño: importación y migraciones
+APP_DATABASE_URL = os.environ.get("DAILY_APP_DATABASE_URL")    # rol de la app, pasa por RLS
+APP_DB_ROLE = os.environ.get("DAILY_APP_DB_ROLE", "daily_app")
 PEOPLE_FILE = os.environ.get("DAILY_PEOPLE_FILE", "people.json")
 TZ = ZoneInfo(os.environ.get("DAILY_TZ", "America/Bogota"))
 
@@ -33,3 +36,10 @@ IMPORT_DISABLED = os.environ.get("DAILY_IMPORT_DISABLED") == "1"
 # La importación directa desde Slack quedó desactivada: la historia viene del
 # archivo JSON. Para volver a usarla hay que poner DAILY_SLACK_IMPORT_ENABLED=1.
 SLACK_IMPORT_ENABLED = os.environ.get("DAILY_SLACK_IMPORT_ENABLED") == "1"
+
+# Quién está usando la sección de administrador.
+#  - En producción, detrás de un proxy con login de Google de la empresa que
+#    ponga el correo en un encabezado: DAILY_AUTH_HEADER=X-Forwarded-Email.
+#  - En local, DAILY_DEV_USER=correo (solo si no hay encabezado configurado).
+AUTH_HEADER = os.environ.get("DAILY_AUTH_HEADER")
+DEV_USER = os.environ.get("DAILY_DEV_USER")
