@@ -19,7 +19,9 @@ def pending(conn):
            ORDER BY ri.day, p.name, CAST(ri.slack_ts AS REAL), ri.id""").fetchall()
 
 
-def _report_for(conn, slack_ts):
+def _report_for(conn, slack_ts, report_id=None):
+    if report_id:
+        return report_id
     row = conn.execute("SELECT report_id FROM report_messages WHERE slack_ts = ?", (slack_ts,)).fetchone()
     if not row:
         raise ValueError("El mensaje de esta línea no está asociado a un reporte.")
@@ -62,19 +64,21 @@ def resolve(conn, item_id, action, text=None, section=None, mark=None, monday_ur
         if action != "descartar":
             if not text:
                 raise ValueError("Falta el texto.")
-            report_id = _report_for(conn, item["slack_ts"])
+            report_id = _report_for(conn, item["slack_ts"], item["report_id"])
             if action == "compromiso":
+                is_extra = int(section == "extra")
+                section = "ayer" if is_extra else section
                 if section not in ("ayer", "hoy"):
-                    raise ValueError("La sección debe ser 'ayer' u 'hoy'.")
+                    raise ValueError("La sección debe ser 'ayer', 'extra' u 'hoy'.")
                 if section == "ayer" and mark not in MARKS:
                     raise ValueError("Una línea de Ayer necesita marca: hecho, pendiente o no_tocado.")
                 conn.execute(
-                    """INSERT INTO commitments (report_id, section, text, mark, mark_source, monday_url,
-                         monday_key, link_status, origin, slack_ts, line_key, manual)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'slack', ?, ?, 1)""",
+                    """INSERT INTO commitments (report_id, section, text, mark, mark_source, is_extra,
+                         monday_url, monday_key, link_status, note, origin, slack_ts, line_key, manual)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'slack', ?, ?, 1)""",
                     (report_id, section, text, mark if section == "ayer" else None,
-                     "manual" if section == "ayer" else None, monday_url, monday_key(monday_url),
-                     "con_link" if monday_url else "sin_link", item["slack_ts"], key))
+                     "manual" if section == "ayer" else None, is_extra, monday_url, monday_key(monday_url),
+                     "con_link" if monday_url else "sin_link", item["note"], item["slack_ts"], key))
             elif action == "operacion":
                 conn.execute("INSERT INTO operation_items (report_id, text, origin, slack_ts, line_key, manual) "
                              "VALUES (?, ?, 'slack', ?, ?, 1)", (report_id, text, item["slack_ts"], key))

@@ -39,8 +39,8 @@ def render_summary(conn):
     d, m, h, r, a = (s["dias_importados"], s["compromisos_con_marca"], s["compromisos_de_hoy"],
                      s["revision"], s["aprobacion"])
     rows = "".join(f"<tr><td>{e(p['persona'])}</td><td>{p['libre']}</td><td>{p['marcas']}</td>"
-                   f"<td>{p['total']}</td></tr>" for p in s["reportes_por_persona"])
-    motivos = "".join(f"<tr><td>{e(x['motivo'])}</td><td>{x['n']}</td></tr>" for x in r["por_motivo"])
+                   f"<td>{p['total']}</td><td>{p['dias_pto']}</td><td>{p['tasa_reporte_pct']}%</td></tr>"
+                   for p in s["reportes_por_persona"])
     status = (f"<p class='ok'>Aprobado el {e(a['aprobado_en'])}</p>" if a["aprobado"] else
               "<p class='warn'>Pendiente de aprobación. La app no se lanza hasta aprobar esta importación.</p>"
               "<form method='post' action='/aprobar'><button>Aprobar importación y permitir lanzamiento"
@@ -50,17 +50,21 @@ def render_summary(conn):
 <h2>Días importados: {d['total']}</h2>
 <p>{e(d['desde'])} a {e(d['hasta'])} · texto libre {d['texto_libre']} · con marcas {d['con_marcas']}</p>
 <h2>Reportes por persona</h2>
-<table><tr><th>Persona</th><th>Texto libre</th><th>Con marcas</th><th>Total</th></tr>{rows}</table>
-<h2>Compromisos con marca (Ayer): {m['total']}</h2>
-<p>✅ hecho {m['hecho']} · 🔄 pendiente {m['pendiente']} · ⬜ no lo toqué {m['no_tocado']}<br>
-Marca escrita solo como palabra: {m['marca_por_palabra']} · corregidos a mano: {m['corregidos_a_mano']}</p>
+<table><tr><th>Persona</th><th>Texto libre</th><th>Con marcas</th><th>Total</th><th>PTO</th><th>Tasa</th></tr>{rows}</table>
+<h2>Compromisos con marca: {m['total']}</h2>
+<p>Ayer: ✅ hecho {m['ayer']['hecho']} · 🔄 pendiente {m['ayer']['pendiente']} · ⬜ no lo toqué {m['ayer']['no_tocado']}<br>
+Extras: ✅ {m['extras']['hecho']} · 🔄 {m['extras']['pendiente']} · ⬜ {m['extras']['no_tocado']}<br>
+Corregidos a mano: {m['corregidos_a_mano']}</p>
 <h2>Compromisos de Hoy: {h['total']}</h2>
-<p>Sin link: {h['sin_link']} · en tercer día o más: {h['tercer_dia_o_mas']}</p>
+<p>Sin link: {h['sin_link']} · con fecha de cierre: {h['con_fecha_cierre']} · en tercer día o más: {h['tercer_dia_o_mas']}</p>
+<h2>Punto de partida: {s['punto_de_partida']['compromisos']} compromisos</h2>
+<table><tr><th>Persona</th><th>Compromiso</th><th>Días seguidos (archivo)</th><th>Días seguidos (importado)</th></tr>
+{"".join(f"<tr><td>{e(x['persona'])}</td><td>{e(x['text'])}</td><td>{x['archivo']}</td><td>{x['app']}</td></tr>" for x in s['punto_de_partida']['racha_distinta_al_archivo'])}</table>
+{"<h2>Avisos</h2><ul>" + "".join(f"<li>{e(w)}</li>" for w in s['avisos']) + "</ul>" if s['avisos'] else ""}
 <h2>Enviado a revisión</h2>
 <p>{r['lineas_enviadas']} líneas y {r['mensajes_enviados']} mensajes · pendientes <b>{r['pendientes']}</b> ·
 resueltas {r['resueltas']} · descartadas {r['descartadas']}
-{f"· <span class='warn'>{r['cambiaron_en_slack']} cambiaron en Slack</span>" if r['cambiaron_en_slack'] else ""}</p>
-<table><tr><th>Motivo</th><th>Cantidad</th></tr>{motivos}</table>""")
+{f"· <span class='warn'>{r['cambiaron_en_origen']} cambiaron en el origen</span>" if r['cambiaron_en_origen'] else ""}</p>""")
 
 
 def _line_form(it):
@@ -69,11 +73,11 @@ def _line_form(it):
     return f"""<form class='fix' method='post' action='/revision/{it['id']}'>
 <select name='action'>{opt('compromiso','Compromiso','')}{opt('operacion','Operación','')}
 {opt('bloqueo','Bloqueo','')}{opt('descartar','Descartar','')}</select>
-<select name='section'>{opt('ayer','Ayer',sec)}{opt('hoy','Hoy',sec)}</select>
+<select name='section'>{opt('ayer','Ayer',sec)}{opt('extra','Extra',sec)}{opt('hoy','Hoy',sec)}</select>
 <select name='mark'>{opt('','(sin marca)','')}{opt('hecho','✅ hecho','')}
 {opt('pendiente','🔄 pendiente','')}{opt('no_tocado','⬜ no lo toqué','')}</select>
-<input type='text' name='text' placeholder='Texto corregido'>
-<input type='text' name='monday_url' placeholder='Link de Monday (opcional)'>
+<input type='text' name='text' placeholder='Texto corregido' value='{e(it["raw_text"] if it["kind"] == "linea" else "")}'>
+<input type='text' name='monday_url' placeholder='Link de Monday (opcional)' value='{e(it["monday_url"])}'>
 <button>Guardar</button></form>"""
 
 
@@ -88,10 +92,13 @@ def render_review(conn, error=None):
     rows = []
     for it in items:
         form = _message_form(it) if it["kind"] == "mensaje" else _line_form(it)
-        stale = "<br><span class='warn'>El mensaje cambió en Slack después de corregirlo</span>" if it["stale"] else ""
+        stale = "<br><span class='warn'>La línea cambió en el origen después de corregirla</span>" if it["stale"] else ""
         rows.append(f"<tr><td>{e(it['day'])}<br>{e(it['persona'])}<br><small>ts {e(it['slack_ts'])}</small></td>"
                     f"<td>{e(it['kind'])} · {e(it['section'] or '-')}<br><b>{e(it['reason'])}</b>{stale}</td>"
-                    f"<td><div class='raw'>{e(it['raw_text'])}</div>{form}</td></tr>")
+                    f"<td><div class='raw'>{e(it['raw_text'])}</div>"
+                    + (f"<small>Link: {e(it['monday_url'])}</small><br>" if it["monday_url"] else "")
+                    + (f"<small>Nota: {e(it['note'])}</small>" if it["note"] else "")
+                    + f"{form}</td></tr>")
     err = f"<p class='warn'>{e(error)}</p>" if error else ""
     return page("Revisión", f"<h1>Revisión a mano ({len(items)})</h1>{err}"
                 "<p>Líneas que la importación no pudo interpretar con seguridad. Nada se adivinó.</p>"

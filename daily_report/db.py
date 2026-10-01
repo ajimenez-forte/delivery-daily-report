@@ -10,7 +10,16 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS people (
     id            INTEGER PRIMARY KEY,
     slack_user_id TEXT UNIQUE,
+    code          TEXT UNIQUE,               -- "LT", "NG"... del archivo de historia
     name          TEXT NOT NULL
+);
+
+-- Días de PTO. No rompen la racha de días seguidos ni la suman.
+CREATE TABLE IF NOT EXISTS pto (
+    person_id INTEGER NOT NULL REFERENCES people(id),
+    day       TEXT NOT NULL,
+    origin    TEXT NOT NULL,
+    PRIMARY KEY (person_id, day)
 );
 
 -- Un día de Daily = un hilo "Daily Delivery —" (o un día en la app).
@@ -34,6 +43,8 @@ CREATE TABLE IF NOT EXISTS reports (
     counts_for_compliance INTEGER NOT NULL DEFAULT 1,
     has_blockers_field    INTEGER NOT NULL DEFAULT 0,
     has_blockers          INTEGER NOT NULL DEFAULT 0,
+    blockers_status       TEXT,              -- 'sin_bloqueos' | 'campo_ausente' | otro
+    blockers_note         TEXT,
     UNIQUE (day_id, person_id)
 );
 
@@ -56,6 +67,10 @@ CREATE TABLE IF NOT EXISTS commitments (
     mark          TEXT,
     mark_source   TEXT,                      -- 'emoji' | 'palabra' | 'manual'
     is_extra      INTEGER NOT NULL DEFAULT 0,
+    note          TEXT,                      -- nota del archivo (marca original, etc.)
+    due_date      TEXT,                      -- fecha de cierre declarada
+    starting_point INTEGER NOT NULL DEFAULT 0, -- 1 = aparece como "Ayer" el primer día en la app
+    file_streak   INTEGER,                   -- dias_seguidos_al_corte del archivo (referencia)
     monday_url    TEXT,
     monday_key    TEXT,                      -- "board:pulse" o "board"
     link_status   TEXT NOT NULL,             -- 'con_link' | 'sin_link'
@@ -99,7 +114,10 @@ CREATE TABLE IF NOT EXISTS review_items (
     line_key      TEXT NOT NULL,
     day           TEXT NOT NULL,
     person_id     INTEGER REFERENCES people(id),
+    report_id     INTEGER REFERENCES reports(id),
     section       TEXT,
+    monday_url    TEXT,
+    note          TEXT,
     raw_text      TEXT NOT NULL,
     reason        TEXT NOT NULL,
     status        TEXT NOT NULL DEFAULT 'pendiente', -- 'pendiente' | 'resuelto' | 'descartado'

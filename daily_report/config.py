@@ -15,7 +15,12 @@ STRUCTURED_START = date(2026, 9, 9)     # desde aquí hay marcas ✅ 🔄 ⬜
 DAILY_PREFIX = "Daily Delivery —"
 BULLETIN_PREFIX = "Boletín Daily —"
 
-# Texto casi idéntico para la regla del tercer día (0..1, difflib).
+HISTORY_FILE = os.environ.get("DAILY_HISTORY_FILE", "daily_historia_2026-08-27_a_09-30.json")
+
+# Regla del tercer día:
+#  - con el mismo link de Monday, el texto además debe ser parecido;
+#  - sin link (o con links distintos), el texto debe ser casi idéntico.
+LINKED_SIMILARITY_THRESHOLD = 0.5
 SIMILARITY_THRESHOLD = 0.9
 
 # Aceptar la marca escrita como palabra oficial ("— hecho") sin emoji.
@@ -24,3 +29,7 @@ STRICT_MARKS = os.environ.get("DAILY_STRICT_MARKS") == "1"
 
 # Interruptor de apagado.
 IMPORT_DISABLED = os.environ.get("DAILY_IMPORT_DISABLED") == "1"
+
+# La importación directa desde Slack quedó desactivada: la historia viene del
+# archivo JSON. Para volver a usarla hay que poner DAILY_SLACK_IMPORT_ENABLED=1.
+SLACK_IMPORT_ENABLED = os.environ.get("DAILY_SLACK_IMPORT_ENABLED") == "1"

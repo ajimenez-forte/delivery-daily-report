@@ -1,6 +1,10 @@
-"""Importa la historia del Daily desde Slack.
+"""Importa la historia del Daily directamente desde Slack.
 
-Uso:
+DESACTIVADO. La historia ahora viene del archivo JSON (ver import_json.py).
+Se deja aquí por si se necesita más adelante. Para usarlo:
+    DAILY_SLACK_IMPORT_ENABLED=1 SLACK_READONLY_TOKEN=xoxb-... python -m daily_report.importer
+
+Uso original:
     SLACK_READONLY_TOKEN=xoxb-... python -m daily_report.importer
 
 Lee el canal, toma cada mensaje "Daily Delivery —" del dueño del canal y las
@@ -249,6 +253,10 @@ def main(argv=None):
     ap.add_argument("--people", default=config.PEOPLE_FILE,
                     help="JSON {slack_user_id: nombre}, por si el token no trae nombres")
     args = ap.parse_args(argv)
+    if not config.SLACK_IMPORT_ENABLED:
+        print("La importación desde Slack está desactivada. Usa: python -m daily_report.import_json\n"
+              "Para activarla: DAILY_SLACK_IMPORT_ENABLED=1", file=sys.stderr)
+        return 2
     conn = db.connect(args.db)
     run_import(conn, ReadOnlySlackClient(), args.channel, load_people_file(args.people))
     print()

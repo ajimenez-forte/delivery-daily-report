@@ -83,7 +83,10 @@ class ImportTest(unittest.TestCase):
                          ["Cerrar pagos, versión final", "hacer el reporte de oxford"])
         # Llevaba 3 días en Slack: el primero en la app es el cuarto.
         M1 = "https://forteglobal-squad.monday.com/boards/111/pulses/9001"
-        self.assertEqual(bridge.streak_preview(self.conn, self.pid(ANA), "2026-10-02", "Cualquier texto", M1), 4)
+        self.assertEqual(bridge.streak_preview(self.conn, self.pid(ANA), "2026-10-02",
+                                               "Cerrar pagos, versión final", M1), 4)
+        # Mismo link pero otra tarea: no sigue la racha.
+        self.assertEqual(bridge.streak_preview(self.conn, self.pid(ANA), "2026-10-02", "Cualquier texto", M1), 1)
         self.assertEqual(bridge.streak_preview(self.conn, self.pid(ANA), "2026-10-02", "Algo nuevo"), 1)
 
     def test_approval_gate(self):
