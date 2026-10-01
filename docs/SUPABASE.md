@@ -31,6 +31,7 @@ Opción sin instalar nada:
    2. `20261001000100_acceso.sql`
    3. `20261001000200_festivos.sql`
    4. `20261001000300_calculo.sql`
+   5. `20261002000000_zona_horaria.sql`
 
 Se pueden volver a correr sin dañar nada.
 
@@ -57,6 +58,8 @@ python -m daily_report.users list
 Para desactivar a alguien: `python -m daily_report.users deactivate correo@forteglobal.com`. En la etapa 2 esto pasa a la sección Usuarios de la app.
 
 El país de cada persona define sus festivos. Laura (`LT`) queda en Costa Rica por `config/paises.json`. Ese archivo solo se usa al crear la persona.
+
+La zona horaria va en el usuario. Si no se indica, sale del país: Costa Rica toma `America/Costa_Rica` y el resto `America/Bogota`. Para fijarla a mano: `users add ... --zona America/Costa_Rica`.
 
 ## 5. Probar que un miembro solo ve sus filas
 

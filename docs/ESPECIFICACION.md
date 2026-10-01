@@ -89,3 +89,12 @@ Solo rol admin, aplicado con RLS y con 403 en el servidor.
 - Cada etapa termina con instrucciones para probarla.
 - README con los pasos de configuración de Supabase, Vercel, Google y Slack, escrito para alguien que no es desarrollador.
 - Al terminar, la app se registra en el registro de automatizaciones de Forte con Alejo como dueño.
+
+## Cambios aprobados
+
+Registro de cambios a esta especificación que Alejo aprobó. Gana lo que está aquí sobre el texto de arriba.
+
+- **1 de octubre de 2026 · Días hábiles:** sábado y domingo no son hábiles. Los festivos oficiales de Colombia tampoco. Para Laura, que trabaja desde Costa Rica, cuentan solo los festivos de Costa Rica. El admin puede agregar o quitar días no hábiles propios de Forte. El festivo del 13 de julio (Ley 2578 de 2026) se mantiene.
+- **1 de octubre de 2026 · Zona horaria por persona:** reemplaza "Zona horaria fija: America/Bogota". Cada usuario tiene su zona horaria (por defecto America/Bogota). Laura usa America/Costa_Rica: su reporte abre a las 7:00 y cierra a las 11:30 en su hora, y "hoy" y "ayer" se calculan con su hora.
+- **1 de octubre de 2026 · Días antes del lanzamiento:** los días entre el 30 de septiembre y el lanzamiento no se marcan como no hábiles. El daily sigue en Slack y esos días se importan con un archivo actualizado antes de lanzar.
+- **1 de octubre de 2026 · Promedio del equipo:** se oculta en las semanas con menos de 3 personas con datos.

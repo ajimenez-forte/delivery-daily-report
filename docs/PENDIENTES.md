@@ -20,4 +20,7 @@
 ## Decisiones abiertas
 
 - **Feriados de Costa Rica de pago no obligatorio** (2 de agosto, 31 de agosto, 1 de diciembre). No se cargan como no hábiles. Si Forte se los da libres a Laura, se agregan como días no hábiles de Forte. Ojo: esos días hoy aplican a todo el equipo. Si debe aplicar solo a Laura, hace falta decidirlo antes de la etapa 2.
-- **Días entre el 30 de septiembre y el lanzamiento.** Cuentan como hábiles sin reporte. Si la app sale después, conviene marcarlos como días no hábiles de Forte o arrancar el rango en la fecha de lanzamiento.
+
+## Antes de lanzar
+
+- Importar el archivo de historia actualizado, con los días del 1 de octubre en adelante que siguieron en Slack. No se marcan como no hábiles.
