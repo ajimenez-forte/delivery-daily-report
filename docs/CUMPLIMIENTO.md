@@ -1,6 +1,8 @@
 # Carga y cumplimiento por persona
 
-Vista de la sección de administrador (`/carga`). Solo la ve el rol `admin`. El acceso lo aplica Postgres con Row Level Security, no la interfaz.
+Vista de la sección de administrador. Solo la ve el rol `admin`. El acceso lo aplica Postgres con Row Level Security, no la interfaz.
+
+> **Estado (etapa 0 de la migración):** el servidor de administrador en Python se retiró porque tomaba la identidad de un encabezado o de una variable local. La identidad va a salir solo del token de Supabase. Las pantallas vuelven en Next.js en la etapa 2 (ver `docs/ESPECIFICACION.md`). Mientras tanto, el cálculo vive en `daily_report/metrics.py` y está cubierto por las pruebas.
 
 ## Columnas
 
@@ -47,7 +49,7 @@ En cada petición, la app abre la conexión como `daily_app` y declara el correo
 | `review_items`, `import_runs`, `launch_approvals` | todo | nada | nada |
 | `admin_notes` | solo las que escribió | nada | nada |
 
-El servidor además responde 403 a quien no es admin. Pero aunque alguien se salte el servidor y consulte la base con el rol de la app, solo ve sus propias filas.
+Desde la etapa 2, el servidor además responde 403 a quien no es admin. Pero aunque alguien se salte el servidor y consulte la base con el rol de la app, solo ve sus propias filas.
 
 ### Puesta en marcha (una vez, como administrador de Postgres)
 
@@ -69,7 +71,6 @@ python -m daily_report.users add persona@forteglobal.com member --persona LT
 
 ### Quién es el usuario
 
-- **Producción:** detrás de un proxy con el login de Google de la empresa que ponga el correo en un encabezado. Se configura con `DAILY_AUTH_HEADER=X-Forwarded-Email`. Ese encabezado solo es confiable si el proxy es la única forma de llegar al servidor.
-- **Local:** `DAILY_DEV_USER=tu-correo` y `python -m daily_report.admin` (escucha en 127.0.0.1).
+La identidad sale solo del token firmado por Supabase Auth (login con Google, cuentas @forteglobal.com). La app nunca toma el correo de un parámetro, encabezado o cookie propia. Esto se construye en las etapas 1 y 2.
 
-Los formularios rechazan peticiones de otro origen.
+En las pruebas de Python, la conexión declara el usuario directamente en la base para simular la sesión. Eso no es una vía de entrada para el navegador.

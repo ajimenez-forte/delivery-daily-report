@@ -65,9 +65,9 @@ La app guarda en las mismas tablas con `origin = 'app'`.
 
 ## Revisión y aprobación
 
-La página de administrador muestra cada línea en revisión con su texto, link y nota. Se puede guardar como compromiso con marca, como operación o como bloqueo, o se puede descartar.
+Desde la etapa 2, la página de administrador en Next.js va a mostrar cada línea en revisión con su texto, link y nota. Se va a poder guardar como compromiso con marca, como operación o como bloqueo, o descartar. Mientras tanto, la corrección se hace con `daily_report.review.resolve`.
 
-`python -m daily_report.summary` y la página de administrador muestran:
+`python -m daily_report.summary` muestra (y la página de administrador va a mostrar):
 
 - días importados;
 - reportes, PTO y tasa por persona;
@@ -76,7 +76,7 @@ La página de administrador muestra cada línea en revisión con su texto, link 
 - punto de partida;
 - la comparación con el bloque `resumen` del archivo.
 
-`summary.launch_allowed(conn)` es `False` hasta que se apruebe la última importación (botón en el administrador o `python -m daily_report.summary --aprobar`). Una nueva corrida o una corrección a mano después de aprobar obligan a aprobar otra vez.
+`summary.launch_allowed(conn)` es `False` hasta que se apruebe la última importación (`python -m daily_report.summary --aprobar`, y desde la etapa 2 también con un botón en el administrador). Una nueva corrida o una corrección a mano después de aprobar obligan a aprobar otra vez.
 
 ## Importación directa desde Slack (desactivada)
 
